@@ -1,0 +1,105 @@
+name: CI/CD - OS Service (EKS + SonarQube)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: oficina-eks-cluster-v2
+  ECR_REPOSITORY: oficina-os-service
+
+jobs:
+  # 1) Build, Testes Automatizados (Unitários + BDD >= 80%) e Qualidade (SonarQube/SonarCloud)
+  test-and-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar Prisma Client
+        run: DATABASE_URL="postgresql://user:pass@localhost:5432/os_db" npx prisma generate
+
+      - name: Executar Testes Unitários + BDD com Cobertura (>= 80%)
+        run: npm run test:cov
+
+      - name: Build da aplicação
+        run: npm run build
+
+      - name: Validação de Qualidade de Código (SonarCloud / SonarQube)
+        if: env.SONAR_TOKEN != ''
+        continue-on-error: true
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+
+  # 2) Build da imagem Docker, push no ECR e deploy automatizado no Kubernetes (EKS)
+  build-and-deploy:
+    needs: test-and-quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciais da AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login no Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Garantir que o repositório ECR existe
+        run: |
+          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" --region "$AWS_REGION" \
+            || aws ecr create-repository --repository-name "$ECR_REPOSITORY" --region "$AWS_REGION"
+
+      - name: Build, tag e push da imagem para o ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+      - name: Conectar ao cluster EKS
+        run: aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER"
+
+      - name: Aplicar manifestos no Kubernetes (RabbitMQ + OS Service + HPA)
+        run: |
+          kubectl apply -f k8s/rabbitmq.yaml
+          kubectl apply -f k8s/secret.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/hpa.yaml
+
+      - name: Atualizar imagem do Deployment no EKS
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          kubectl set image deployment/os-service \
+            migrate="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            api="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          kubectl rollout status deployment/os-service --timeout=180s

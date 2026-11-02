@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: os-service
+  labels:
+    app: os-service
+    tags.datadoghq.com/service: "os-service"
+    tags.datadoghq.com/env: "production"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: os-service
+  template:
+    metadata:
+      labels:
+        app: os-service
+        tags.datadoghq.com/service: "os-service"
+        tags.datadoghq.com/env: "production"
+      annotations:
+        ad.datadoghq.com/api.logs: '[{"source":"nodejs","service":"os-service"}]'
+    spec:
+      initContainers:
+        - name: migrate
+          image: 538889416411.dkr.ecr.us-east-1.amazonaws.com/oficina-os-service:latest
+          imagePullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+            - 'echo "Sincronizando schema do OS Service..." && npx prisma db push --schema prisma/schema.prisma'
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: os-service-secrets
+                  key: DATABASE_URL
+      containers:
+        - name: api
+          image: 538889416411.dkr.ecr.us-east-1.amazonaws.com/oficina-os-service:latest
+          imagePullPolicy: Always
+          command: ['/bin/sh', '-c', '[ -f dist/src/main.js ] && node dist/src/main.js || node dist/main.js']
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: os-service-secrets
+          env:
+            - name: PORT
+              value: "3000"
+            - name: RABBITMQ_URL
+              value: "amqp://guest:guest@rabbitmq-service:5672"
+            - name: RABBITMQ_QUEUE
+              value: "os-service.saga.queue"
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_ENV
+              value: "production"
+            - name: DD_SERVICE
+              value: "os-service"
+            - name: DD_VERSION
+              value: "4.0.0"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"

@@ -1,0 +1,87 @@
+version: '3.9'
+
+services:
+  postgres-os:
+    image: postgres:16-alpine
+    container_name: fase4-postgres-os
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: os_db
+    ports:
+      - '5432:5432'
+
+  postgres-billing:
+    image: postgres:16-alpine
+    container_name: fase4-postgres-billing
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: billing_db
+    ports:
+      - '5433:5432'
+
+  mongodb-execution:
+    image: mongo:7
+    container_name: fase4-mongodb-execution
+    ports:
+      - '27017:27017'
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: fase4-rabbitmq
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+
+  os-service:
+    build: ../tech-challenge-fase4-os-service
+    container_name: fase4-os-service
+    depends_on:
+      - postgres-os
+      - rabbitmq
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgrespassword@postgres-os:5432/os_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_QUEUE: os-service.saga.queue
+      JWT_SECRET: super-secret-jwt-oficina-soat
+      DD_SERVICE: os-service
+      DD_ENV: development
+    ports:
+      - '3000:3000'
+
+  billing-service:
+    build: ../tech-challenge-fase4-billing-service
+    container_name: fase4-billing-service
+    depends_on:
+      - postgres-billing
+      - rabbitmq
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgrespassword@postgres-billing:5432/billing_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_QUEUE: billing-service.saga.queue
+      JWT_SECRET: super-secret-jwt-oficina-soat
+      DD_SERVICE: billing-service
+      DD_ENV: development
+    ports:
+      - '3001:3001'
+
+  execution-service:
+    build: ../tech-challenge-fase4-execution-service
+    container_name: fase4-execution-service
+    depends_on:
+      - mongodb-execution
+      - rabbitmq
+    environment:
+      PORT: 3002
+      MONGODB_URI: mongodb://mongodb-execution:27017/execution_db
+      MONGODB_DATABASE: execution_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_QUEUE: execution-service.saga.queue
+      JWT_SECRET: super-secret-jwt-oficina-soat
+      DD_SERVICE: execution-service
+      DD_ENV: development
+    ports:
+      - '3002:3002'

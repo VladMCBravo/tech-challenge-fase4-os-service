@@ -1,0 +1,218 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "cjs"
+  generatedFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DocumentType {
+  CPF
+  CNPJ
+}
+
+enum InventoryItemType {
+  PART
+  SUPPLY
+}
+
+enum InventoryMovementType {
+  ENTRY
+  DECREASE
+  ADJUSTMENT
+  REVERSAL
+}
+
+enum WorkOrderStatus {
+  RECEIVED
+  IN_DIAGNOSIS
+  WAITING_APPROVAL
+  IN_EXECUTION
+  FINISHED
+  DELIVERED
+  CANCELLED
+}
+
+enum AdminUserRole {
+  ADMIN
+  ATTENDANT
+  MECHANIC
+}
+
+model AdminUser {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         AdminUserRole
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("admin_users")
+}
+
+model Customer {
+  id           String      @id @default(cuid())
+  name         String
+  documentType DocumentType
+  document     String      @unique
+  phone        String?
+  email        String?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  vehicles   Vehicle[]
+  workOrders WorkOrder[]
+
+  @@index([name])
+  @@map("customers")
+}
+
+model Vehicle {
+  id         String    @id @default(cuid())
+  customerId String
+  plate      String    @unique
+  brand      String
+  model      String
+  year       Int
+  color      String?
+  mileage    Int?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  workOrders WorkOrder[]
+
+  @@index([customerId])
+  @@map("vehicles")
+}
+
+model Service {
+  id                   String                 @id @default(cuid())
+  name                 String
+  description          String?
+  basePrice            Decimal                @db.Decimal(10, 2)
+  estimatedTimeMinutes Int?
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  workOrderServiceItems WorkOrderServiceItem[]
+
+  @@index([name])
+  @@map("services")
+}
+
+model InventoryItem {
+  id                 String                 @id @default(cuid())
+  code               String                 @unique
+  name               String
+  description        String?
+  itemType           InventoryItemType
+  unitPrice          Decimal                @db.Decimal(10, 2)
+  quantityAvailable  Int                    @default(0)
+  minimumQuantity    Int                    @default(0)
+  isActive           Boolean                @default(true)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  movements          InventoryMovement[]
+  workOrderPartItems WorkOrderPartItem[]
+
+  @@index([itemType])
+  @@index([isActive])
+  @@map("inventory_items")
+}
+
+model InventoryMovement {
+  id              String                @id @default(cuid())
+  inventoryItemId String
+  movementType    InventoryMovementType
+  quantity        Int
+  referenceType   String?
+  referenceId     String?
+  notes           String?
+  createdBy       String?
+  createdAt       DateTime              @default(now())
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@index([inventoryItemId])
+  @@index([movementType])
+  @@index([referenceType, referenceId])
+  @@map("inventory_movements")
+}
+
+model WorkOrder {
+  id                 String              @id @default(cuid())
+  code               String              @unique
+  customerId         String
+  vehicleId          String
+  status             WorkOrderStatus     @default(RECEIVED)
+  initialNotes       String?
+  openedAt           DateTime            @default(now())
+  diagnosisStartedAt DateTime?
+  executionStartedAt DateTime?
+  finishedAt         DateTime?
+  deliveredAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  customer           Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  vehicle            Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  serviceItems       WorkOrderServiceItem[]
+  partItems          WorkOrderPartItem[]
+
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([openedAt])
+  @@map("work_orders")
+}
+
+model WorkOrderServiceItem {
+  id                   String    @id @default(cuid())
+  workOrderId          String
+  serviceId            String
+  description          String?
+  unitPrice            Decimal   @db.Decimal(10, 2)
+  quantity             Int       @default(1)
+  subtotal             Decimal   @db.Decimal(10, 2)
+  estimatedTimeMinutes Int?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  workOrder            WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  service              Service   @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([workOrderId])
+  @@index([serviceId])
+  @@map("work_order_service_items")
+}
+
+model WorkOrderPartItem {
+  id               String            @id @default(cuid())
+  workOrderId      String
+  inventoryItemId  String
+  itemType         InventoryItemType
+  plannedQuantity  Int
+  consumedQuantity Int               @default(0)
+  unitPrice        Decimal           @db.Decimal(10, 2)
+  subtotal         Decimal           @db.Decimal(10, 2)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  workOrder        WorkOrder         @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  inventoryItem    InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@index([workOrderId])
+  @@index([inventoryItemId])
+  @@map("work_order_part_items")
+}

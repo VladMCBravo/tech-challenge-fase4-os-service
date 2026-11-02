@@ -1,0 +1,17 @@
+{
+  "name": "[Oficina] Falhas no processamento de Ordens de Serviço",
+  "type": "query alert",
+  "query": "sum(last_5m):sum:oficina.errors{*}.as_count() > 5",
+  "message": "Foram detectadas falhas no processamento das APIs/OS nos últimos 5 minutos.\n\n{{#is_alert}}Volume de erros acima do limite crítico. Verifique os logs (service:oficina-mecanica-api) e os traces no APM.{{/is_alert}}\n{{#is_recovery}}Volume de erros normalizado.{{/is_recovery}}\n\n@slack-ou-email-do-grupo",
+  "tags": ["projeto:oficina", "fase:3"],
+  "options": {
+    "thresholds": {
+      "critical": 5,
+      "warning": 2
+    },
+    "notify_no_data": false,
+    "renotify_interval": 0,
+    "require_full_window": false,
+    "new_group_delay": 60
+  }
+}

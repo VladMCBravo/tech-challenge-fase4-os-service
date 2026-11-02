@@ -1,0 +1,81 @@
+{
+  "title": "Oficina Mecânica — Observabilidade (Fase 3)",
+  "description": "Latência, erros, recursos do Kubernetes e métricas de negócio das Ordens de Serviço.",
+  "layout_type": "ordered",
+  "widgets": [
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Volume de OS criadas (período)",
+        "requests": [
+          { "q": "sum:oficina.work_orders.created{*}.as_count()", "aggregator": "sum" }
+        ],
+        "precision": 0
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Volume diário de Ordens de Serviço",
+        "requests": [
+          { "q": "sum:oficina.work_orders.created{*}.as_count()", "display_type": "bars" }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Tempo médio por etapa (segundos) — diagnóstico / execução / finalização",
+        "requests": [
+          { "q": "avg:oficina.work_orders.stage_duration{*} by {stage}", "display_type": "line" }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Latência das APIs (ms) — média e p95",
+        "requests": [
+          { "q": "avg:oficina.api.latency{*}", "display_type": "line" },
+          { "q": "p95:oficina.api.latency{*}", "display_type": "line" }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Requisições por classe de status (2xx / 4xx / 5xx)",
+        "requests": [
+          { "q": "sum:oficina.api.requests{*} by {status_class}.as_count()", "display_type": "bars" }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Erros e falhas nas integrações",
+        "requests": [
+          { "q": "sum:oficina.errors{*} by {type}.as_count()", "display_type": "bars" }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Kubernetes — uso de CPU por pod",
+        "requests": [
+          { "q": "avg:kubernetes.cpu.usage.total{kube_cluster_name:oficina-eks-cluster-v2} by {pod_name}", "display_type": "line" }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Kubernetes — uso de memória por pod",
+        "requests": [
+          { "q": "avg:kubernetes.memory.usage{kube_cluster_name:oficina-eks-cluster-v2} by {pod_name}", "display_type": "line" }
+        ]
+      }
+    }
+  ]
+}
