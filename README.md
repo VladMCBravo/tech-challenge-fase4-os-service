@@ -9,13 +9,13 @@ Microsserviço responsável pelo gerenciamento de **Ordens de Serviço (OS)**, *
 
 ## 1. Arquitetura de Microsserviços (Fase 4)
 
-A solução foi decomposta em **3 microsserviços independentes**, cada um com seu próprio repositório, pipeline de CI/CD, manifestos Kubernetes e **banco de dados exclusivo (Database per Service — Poliglota SQL + NoSQL)**:
+A solução foi decomposta em **3 microsserviços independentes**, cada um com seu próprio repositório, infraestrutura Terraform (`/infra`), manifestos Kubernetes (`/k8s`), pipeline de CI/CD (`.github/workflows/deploy.yml`) e **banco de dados exclusivo (Database per Service — Poliglota SQL + NoSQL)**:
 
-| Microsserviço | Repositório | Banco de Dados | Porta | Responsabilidades |
-| :--- | :--- | :--- | :---: | :--- |
-| **OS Service** | `tech-challenge-fase4-os-service` | **PostgreSQL (SQL)** (`os_db`) | `3000` | Abertura de OS, clientes, veículos, serviços, reserva/estorno de estoque e ciclo de vida da OS. |
-| **Billing Service** | `tech-challenge-fase4-billing-service` | **PostgreSQL (SQL)** (`billing_db`) | `3001` | Geração de orçamento, cobrança PIX/Checkout via **Mercado Pago**, aprovação/rejeição e reembolso. |
-| **Execution Service** | `tech-challenge-fase4-execution-service` | **MongoDB (NoSQL)** (`execution_db`) | `3002` | Fila priorizada de produção, etapas de diagnóstico/reparo e conclusão/falha da execução. |
+| Microsserviço | Repositório | Banco de Dados | Infra & K8s | Porta | Responsabilidades |
+| :--- | :--- | :--- | :---: | :---: | :--- |
+| **OS Service** | `tech-challenge-fase4-os-service` | **PostgreSQL (SQL)** (`os_db`) | `/infra` + `/k8s` | `3000` | Abertura de OS, clientes, veículos, serviços, reserva/estorno de estoque e ciclo de vida da OS. |
+| **Billing Service** | `tech-challenge-fase4-billing-service` | **PostgreSQL (SQL)** (`billing_db`) | `/infra` + `/k8s` | `3001` | Geração de orçamento, autenticação OAuth2 (`client_id`/`client_secret`) e cobrança PIX/Checkout via **Mercado Pago**, aprovação/rejeição e reembolso. |
+| **Execution Service** | `tech-challenge-fase4-execution-service` | **MongoDB (NoSQL)** (`execution_db`) | `/infra` + `/k8s` | `3002` | Fila priorizada de produção, etapas de diagnóstico/reparo e conclusão/falha da execução. |
 
 ```mermaid
 flowchart TB
@@ -27,7 +27,7 @@ flowchart TB
 
     OS --> DB_OS[("PostgreSQL (SQL)\nos_db")]
     BIL --> DB_BIL[("PostgreSQL (SQL)\nbilling_db")]
-    BIL --> MP["Mercado Pago API\n(Checkout / PIX / Webhook)"]
+    BIL --> MP["Mercado Pago API\n(OAuth2 Token / Checkout / PIX / Webhook)"]
     EXE --> DB_EXE[("MongoDB (NoSQL)\nexecution_db")]
 
     OS <-->|"Eventos Saga"| RMQ(("RabbitMQ\nExchange: oficina.saga"))
@@ -94,7 +94,18 @@ Tests:       117 passed, 117 total
 
 ---
 
-## 4. Como Executar
+## 4. CI/CD, Deploy Automatizado em Kubernetes e Nota sobre AWS Academy
+
+Conforme orientação da coordenação e dos professores da FIAP (referente à expiração de sessão/créditos do laboratório **AWS Academy**):
+1. **Gatilhos Automatizados e `workflow_dispatch`:** O pipeline `.github/workflows/deploy.yml` é disparado automaticamente em `push` e `pull_request` na branch `main`, além de contar com `workflow_dispatch` para disparo sob demanda quando o laboratório AWS estiver ativo.
+2. **Deploy Kubernetes Automatizado no Pipeline (Kind + AWS EKS):**
+   - Em **todas as execuções do CI/CD**, o job `deploy-k8s` provisiona automaticamente um cluster Kubernetes real via **Kind (`helm/kind-action`)**, aplica todos os manifestos (`k8s/rabbitmq.yaml`, `k8s/secret.yaml`, `k8s/deployment.yaml`, `k8s/service.yaml`, `k8s/hpa.yaml`) e valida os Pods, Services, HPA e Health Checks.
+   - Quando as credenciais temporárias do **AWS Academy** (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`) estão ativas nos Secrets, o pipeline também realiza o push da imagem para o **Amazon ECR** e o rollout automatizado no **Amazon EKS**.
+3. **Infraestrutura Terraform Isolada (`/infra`):** A pasta [`/infra`](./infra) contém os recursos Terraform exclusivos deste microsserviço (repositório ECR e instância RDS PostgreSQL `os_db`).
+
+---
+
+## 5. Como Executar
 
 ### Localmente (Ecossistema Completo com os 3 Microsserviços)
 ```bash
@@ -113,8 +124,8 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/os_db" npx prisma generate
 npm run test:cov
 ```
 
-### Deploy Kubernetes (EKS)
-Automatizado via GitHub Actions (`.github/workflows/deploy.yml`) ou manualmente:
+### Deploy Kubernetes (EKS / Kind)
+Automatizado via GitHub Actions ([`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)) ou via kubectl:
 ```bash
 kubectl apply -f k8s/rabbitmq.yaml
 kubectl apply -f k8s/secret.yaml

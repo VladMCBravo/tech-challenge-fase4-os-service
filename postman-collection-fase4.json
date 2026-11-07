@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "FIAP SOAT - Tech Challenge Fase 4 (Microsserviços + Saga Pattern + Mercado Pago)",
-    "description": "Collection completa cobrindo os 3 microsserviços (OS Service, Billing Service e Execution Service), fluxo feliz da Saga Coreografada e cenários de Rollback/Compensação.",
+    "description": "Collection completa cobrindo os 3 microsserviços (OS Service, Billing Service e Execution Service), autenticação OAuth2 Mercado Pago (client_id/client_secret -> token), fluxo feliz da Saga Coreografada e cenários de Rollback/Compensação.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -66,6 +66,18 @@
     {
       "name": "2. Billing Service + Mercado Pago (PostgreSQL - :3001)",
       "item": [
+        {
+          "name": "2.0 Obter Token OAuth2 do Mercado Pago (client_id / client_secret -> access_token)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{billing_url}}/budgets/mercadopago/oauth/token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"mp_client_id_soat_fase4\",\n  \"clientSecret\": \"mp_client_secret_soat_fase4\"\n}"
+            }
+          }
+        },
         {
           "name": "2.1 Consultar Orçamento e Cobrança Mercado Pago da OS",
           "request": {
