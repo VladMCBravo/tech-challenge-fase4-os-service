@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../shared/prisma/prisma.service';
+import { RabbitMQService } from '../messaging/rabbitmq.service';
 
 /**
  * Healthchecks (rotas PÚBLICAS — sem JwtAuthGuard) para Kubernetes e Datadog.
@@ -14,12 +15,19 @@ import { PrismaService } from '../shared/prisma/prisma.service';
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rabbitMQ: RabbitMQService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Liveness — a aplicação está no ar' })
   live() {
-    return { status: 'ok', uptime: process.uptime() };
+    return {
+      status: 'ok',
+      uptime: process.uptime(),
+      messaging: this.rabbitMQ.getStatus(),
+    };
   }
 
   @Get('ready')
@@ -27,7 +35,11 @@ export class HealthController {
   async ready() {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-      return { status: 'ok', database: 'up' };
+      return {
+        status: 'ok',
+        database: 'up',
+        messaging: this.rabbitMQ.getStatus(),
+      };
     } catch {
       throw new ServiceUnavailableException({
         status: 'error',

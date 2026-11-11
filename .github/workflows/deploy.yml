@@ -49,10 +49,11 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }}
 
-  # 2) Build da imagem Docker e Deploy Automatizado em Kubernetes (AWS EKS ou Kubernetes Kind no CI)
+  # 2) Build da imagem Docker e Deploy Automatizado em Kubernetes (Kind no CI; EKS quando o AWS Academy está ativo)
+  #    Roda também em Pull Requests como checagem obrigatória: o PR só passa se o serviço sobe no K8s
+  #    com banco próprio + RabbitMQ e responde aos health checks.
   build-and-deploy:
     needs: test-and-quality
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       HAS_AWS_CREDENTIALS: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
@@ -85,11 +86,19 @@ jobs:
         run: |
           kind load docker-image oficina-os-service:latest --name oficina-k8s
 
-      - name: Aplicar manifestos Kubernetes (/k8s) e verificar Pods, Services e HPA
+      - name: Instalar metrics-server (métricas de CPU/memória para o HPA)
         run: |
-          kubectl apply -f k8s/rabbitmq.yaml
-          kubectl apply -f k8s/secret.yaml
-          sed 's|538889416411.dkr.ecr.us-east-1.amazonaws.com/oficina-os-service:latest|oficina-os-service:latest|g' k8s/deployment.yaml | sed 's|imagePullPolicy: Always|imagePullPolicy: IfNotPresent|g' | kubectl apply -f -
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/hpa.yaml
-          kubectl get deployments,pods,svc,hpa -o wide
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.2/components.yaml
+          kubectl -n kube-system patch deployment metrics-server --type=json \
+            -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+      - name: Deploy automatizado em Kubernetes + health checks (scripts/deploy-k8s.sh)
+        run: ./scripts/deploy-k8s.sh
+
+      - name: Evidência do HPA com métricas coletadas
+        if: always()
+        run: |
+          kubectl -n kube-system rollout status deployment/metrics-server --timeout=120s || true
+          sleep 30
+          kubectl get hpa -o wide || true
+          kubectl top pods || true

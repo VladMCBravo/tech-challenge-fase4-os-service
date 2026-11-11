@@ -1,3 +1,5 @@
+# Broker de mensageria da Saga coreografada (exchange topic "oficina.saga").
+# Compartilhado pelos 3 microsserviços no cluster; cada serviço declara a própria fila.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,13 +29,19 @@ spec:
               value: "guest"
             - name: RABBITMQ_DEFAULT_PASS
               value: "guest"
+          readinessProbe:
+            exec:
+              command: ['rabbitmq-diagnostics', '-q', 'check_port_connectivity']
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 10
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "50m"
-            limits:
               memory: "256Mi"
-              cpu: "200m"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
 ---
 apiVersion: v1
 kind: Service
