@@ -16,6 +16,8 @@ spec:
       labels:
         app: rabbitmq
     spec:
+      # A aplicação não acessa a API do Kubernetes: não monta o token da service account
+      automountServiceAccountToken: false
       containers:
         - name: rabbitmq
           image: rabbitmq:3-management-alpine
@@ -37,9 +39,11 @@ spec:
             timeoutSeconds: 10
           resources:
             requests:
+              ephemeral-storage: "64Mi"
               memory: "256Mi"
               cpu: "100m"
             limits:
+              ephemeral-storage: "512Mi"
               memory: "512Mi"
               cpu: "500m"
 ---

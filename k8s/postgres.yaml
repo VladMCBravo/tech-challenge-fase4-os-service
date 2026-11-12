@@ -28,6 +28,8 @@ spec:
       labels:
         app: os-postgres
     spec:
+      # A aplicação não acessa a API do Kubernetes: não monta o token da service account
+      automountServiceAccountToken: false
       containers:
         - name: postgres
           image: postgres:16-alpine
@@ -46,9 +48,11 @@ spec:
             periodSeconds: 5
           resources:
             requests:
+              ephemeral-storage: "64Mi"
               memory: "128Mi"
               cpu: "50m"
             limits:
+              ephemeral-storage: "1Gi"
               memory: "512Mi"
               cpu: "500m"
           volumeMounts:

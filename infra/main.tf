@@ -36,6 +36,7 @@ resource "aws_db_instance" "os_db" {
   skip_final_snapshot    = true
   publicly_accessible    = false
   storage_encrypted      = true
+  backup_retention_period = 7
 
   tags = {
     Project     = var.project_name

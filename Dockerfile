@@ -2,9 +2,9 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 COPY . .
-RUN DATABASE_URL="postgresql://user:password@localhost:5432/os_db" npx prisma generate
+RUN DATABASE_URL="postgresql://user:password@localhost:5432/os_db" npm run prisma:generate
 RUN npm run build
 
 # Stage 2 — runtime
@@ -12,7 +12,9 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 RUN apk add --no-cache openssl libc6-compat
 COPY package*.json ./
-RUN npm ci
+# Instala sem executar scripts de terceiros; só o @prisma/engines (pacote confiável) roda o
+# seu script para baixar o schema engine usado pelo initContainer (prisma db push).
+RUN npm ci --ignore-scripts && npm rebuild @prisma/engines
 COPY --from=builder /app/dist ./dist
 # Logs estruturados em JSON (pino) e sem dependências de desenvolvimento no runtime
 ENV NODE_ENV=production

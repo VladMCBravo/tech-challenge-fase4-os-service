@@ -22,20 +22,19 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
 
       - name: Instalar dependências
-        run: npm ci
-
+        run: npm ci --ignore-scripts
       - name: Gerar Prisma Client
-        run: DATABASE_URL="postgresql://user:pass@localhost:5432/os_db" npx prisma generate
+        run: DATABASE_URL="postgresql://user:pass@localhost:5432/os_db" npm run prisma:generate
 
       - name: Executar Testes Unitários + BDD com Cobertura (>= 80%)
         run: npm run test:cov
@@ -51,7 +50,7 @@ jobs:
 
       - name: Validação de Qualidade de Código (SonarCloud / SonarQube) + Quality Gate
         if: env.SONAR_TOKEN != ''
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5.3.2
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }}
         with:
@@ -70,8 +69,7 @@ jobs:
       HAS_AWS_CREDENTIALS: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Build da imagem Docker do microsserviço
         run: |
           docker build -t oficina-os-service:${{ github.sha }} -t oficina-os-service:latest .
@@ -80,7 +78,7 @@ jobs:
       - name: Configurar credenciais da AWS (EKS)
         if: env.HAS_AWS_CREDENTIALS == 'true'
         continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -89,7 +87,7 @@ jobs:
 
       # Caminho B (Sempre executado para garantir evidência de deploy K8s mesmo com AWS Academy desligado): Cluster Kubernetes Kind
       - name: Criar cluster Kubernetes (Kind) para Deploy Automatizado
-        uses: helm/kind-action@v1.10.0
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
           cluster_name: oficina-k8s
 
