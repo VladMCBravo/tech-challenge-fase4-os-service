@@ -18,6 +18,8 @@ jobs:
   # 1) Build, Testes Automatizados (Unitários + BDD >= 80%) e Qualidade (SonarQube/SonarCloud)
   test-and-quality:
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
@@ -41,13 +43,22 @@ jobs:
       - name: Build da aplicação
         run: npm run build
 
-      - name: Validação de Qualidade de Código (SonarCloud / SonarQube)
+      # O secret precisa estar no env do JOB: "secrets" não pode ser usado em "if" de step,
+      # e um env definido só dentro do step não existe no momento em que o "if" é avaliado.
+      - name: Aviso — SONAR_TOKEN não configurado
+        if: env.SONAR_TOKEN == ''
+        run: echo "::warning title=SonarQube::Secret SONAR_TOKEN não configurado neste repositório; análise de qualidade não executada."
+
+      - name: Validação de Qualidade de Código (SonarCloud / SonarQube) + Quality Gate
         if: env.SONAR_TOKEN != ''
-        continue-on-error: true
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: SonarSource/sonarqube-scan-action@v5
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+        with:
+          # Aguarda o resultado do Quality Gate: se reprovar, o job falha e o PR fica bloqueado.
+          args: >
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
 
   # 2) Build da imagem Docker e Deploy Automatizado em Kubernetes (AWS EKS ou Kubernetes Kind no CI)
   build-and-deploy:
