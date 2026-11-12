@@ -34,7 +34,7 @@ json() { node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const 
 wait_for() { # wait_for DESCRIÇÃO COMANDO VALOR_ESPERADO
   for _ in $(seq 1 30); do
     value="$(eval "$2" 2>/dev/null || true)"
-    if [ "$value" = "$3" ]; then echo "   ✔ $1: $value"; return 0; fi
+    if [[ "$value" == "$3" ]]; then echo "   ✔ $1: $value"; return 0; fi
     sleep 1
   done
   echo "   ✘ $1: esperado '$3', obtido '${value:-<vazio>}'"; return 1

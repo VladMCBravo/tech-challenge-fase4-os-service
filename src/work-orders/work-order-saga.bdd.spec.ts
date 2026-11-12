@@ -24,37 +24,39 @@ jest.mock('../observability/metrics.service', () => ({
   MetricsService: class MetricsService {},
 }));
 
-import * as fs from 'fs';
 import * as path from 'path';
 import { Test, TestingModule } from '@nestjs/testing';
+import { defineFeature, DefineStepFunction, loadFeature } from 'jest-cucumber';
 import { WorkOrdersService } from './work-orders.service';
 import { PrismaService } from '../shared/prisma/prisma.service';
 import { MetricsService } from '../observability/metrics.service';
 import { RabbitMQService } from '../messaging/rabbitmq.service';
-import { SagaEventPattern } from '../messaging/saga-events.interface';
 
-describe('BDD - Fluxo Transacional de Ordem de Serviço com Saga Pattern (.feature)', () => {
-  const featurePath = path.join(
-    __dirname,
-    'features',
-    'work-order-saga.feature',
-  );
-  const featureContent = fs.readFileSync(featurePath, 'utf-8');
+/**
+ * BDD executável: cada passo do arquivo Gherkin abaixo é ligado a uma step
+ * definition via jest-cucumber. Se um passo do .feature mudar ou não tiver
+ * implementação correspondente, o teste falha.
+ */
+const feature = loadFeature(
+  path.join(__dirname, 'features', 'work-order-saga.feature'),
+);
 
+type DbState = {
+  customers: Record<string, any>;
+  vehicles: Record<string, any>;
+  services: Record<string, any>;
+  inventory: Record<string, any>;
+  movements: any[];
+  workOrders: Record<string, any>;
+  serviceItems: any[];
+  partItems: any[];
+};
+
+defineFeature(feature, (test) => {
   let service: WorkOrdersService;
   let rabbitMQ: RabbitMQService;
-
-  // Estado in-memory simulando o banco relacional durante os cenários BDD
-  let dbState: {
-    customers: Record<string, any>;
-    vehicles: Record<string, any>;
-    services: Record<string, any>;
-    inventory: Record<string, any>;
-    movements: any[];
-    workOrders: Record<string, any>;
-    serviceItems: any[];
-    partItems: any[];
-  };
+  let dbState: DbState;
+  let workOrderId: string;
 
   const metricsMock = {
     workOrderCreated: jest.fn(),
@@ -78,6 +80,7 @@ describe('BDD - Fluxo Transacional de Ordem de Serviço com Saga Pattern (.featu
       partItems: [],
     };
 
+    // Estado in-memory que simula o banco relacional (os_db) durante os cenários
     const prismaStatefulMock = {
       customer: {
         findUnique: jest.fn(async ({ where }) => dbState.customers[where.id] ?? null),
@@ -103,11 +106,7 @@ describe('BDD - Fluxo Transacional de Ordem de Serviço com Saga Pattern (.featu
       },
       workOrder: {
         create: jest.fn(async ({ data }) => {
-          const wo = {
-            id: 'wo-bdd-1',
-            ...data,
-            openedAt: new Date(),
-          };
+          const wo = { id: 'wo-bdd-1', ...data, openedAt: new Date() };
           dbState.workOrders[wo.id] = wo;
           return wo;
         }),
@@ -117,12 +116,8 @@ describe('BDD - Fluxo Transacional de Ordem de Serviço com Saga Pattern (.featu
           Object.assign(wo, data);
           return {
             ...wo,
-            serviceItems: dbState.serviceItems.filter(
-              (s) => s.workOrderId === where.id,
-            ),
-            partItems: dbState.partItems.filter(
-              (p) => p.workOrderId === where.id,
-            ),
+            serviceItems: dbState.serviceItems.filter((s) => s.workOrderId === where.id),
+            partItems: dbState.partItems.filter((p) => p.workOrderId === where.id),
           };
         }),
       },
@@ -145,10 +140,7 @@ describe('BDD - Fluxo Transacional de Ordem de Serviço com Saga Pattern (.featu
         findMany: jest.fn(async ({ where }) =>
           dbState.partItems
             .filter((p) => p.workOrderId === where.workOrderId)
-            .map((p) => ({
-              ...p,
-              inventoryItem: dbState.inventory[p.inventoryItemId],
-            })),
+            .map((p) => ({ ...p, inventoryItem: dbState.inventory[p.inventoryItemId] })),
         ),
       },
     };
@@ -167,156 +159,192 @@ describe('BDD - Fluxo Transacional de Ordem de Serviço com Saga Pattern (.featu
     service.onModuleInit();
   });
 
-  it('deve validar que o arquivo Gherkin .feature contém os cenários obrigatórios de BDD', () => {
-    expect(featureContent).toContain(
-      'Funcionalidade: Fluxo Transacional de Ordem de Serviço com Saga Pattern',
+  // ---------------------------------------------------------------------------
+  // Passos compartilhados entre os cenários
+  // ---------------------------------------------------------------------------
+  const clienteComVeiculoEPeca = (given: DefineStepFunction) => {
+    given(
+      /^um cliente ativo "(.*)" com um veículo "(.*)" e uma peça "(.*)" com (\d+) unidades em estoque$/,
+      (customerId: string, vehicleId: string, partId: string, quantity: string) => {
+        dbState.customers[customerId] = { id: customerId, name: 'Carlos Silva', isActive: true };
+        dbState.vehicles[vehicleId] = { id: vehicleId, customerId, plate: 'ABC1D23' };
+        dbState.inventory[partId] = {
+          id: partId,
+          name: partId,
+          itemType: 'PART',
+          unitPrice: 120,
+          quantityAvailable: Number(quantity),
+          isActive: true,
+        };
+      },
     );
-    expect(featureContent).toContain(
-      'Cenário: Fluxo completo de sucesso de uma Ordem de Serviço pela Saga',
-    );
-    expect(featureContent).toContain(
-      'Cenário: Compensação e Rollback da Saga quando o pagamento é recusado',
-    );
-  });
+  };
 
-  it('Cenário BDD 1: Fluxo completo de sucesso de uma Ordem de Serviço pela Saga', async () => {
-    // Dado um cliente ativo "cliente-01" com um veículo "veiculo-01" e uma peça "peca-filtro" com 10 unidades em estoque
-    dbState.customers['cliente-01'] = { id: 'cliente-01', name: 'Carlos Silva', isActive: true };
-    dbState.vehicles['veiculo-01'] = { id: 'veiculo-01', customerId: 'cliente-01', plate: 'ABC1D23' };
-    dbState.services['srv-troca-oleo'] = {
-      id: 'srv-troca-oleo',
-      name: 'Troca de Óleo',
-      basePrice: 150,
-      estimatedTimeMinutes: 45,
-      isActive: true,
-    };
-    dbState.inventory['peca-filtro'] = {
-      id: 'peca-filtro',
-      name: 'Filtro de Óleo',
-      itemType: 'PART',
-      unitPrice: 50,
-      quantityAvailable: 10,
-      isActive: true,
-    };
+  const statusDaOs = (step: DefineStepFunction) => {
+    step(/^a Ordem de Serviço deve mudar para o status "(.*)"$/, (status: string) => {
+      expect(dbState.workOrders[workOrderId].status).toBe(status);
+    });
+  };
 
-    // Quando o atendente abre uma nova Ordem de Serviço e inicia o diagnóstico
-    const createdOs = await service.create({
+  const abrirOsEIniciarDiagnostico = async () => {
+    const created = await service.create({
       customerId: 'cliente-01',
       vehicleId: 'veiculo-01',
       initialNotes: 'Revisão periódica',
     });
-    expect(createdOs.status).toBe('RECEIVED');
+    expect(created.status).toBe('RECEIVED');
+    workOrderId = created.id;
+    await service.startDiagnosis(workOrderId);
+    expect(dbState.workOrders[workOrderId].status).toBe('IN_DIAGNOSIS');
+  };
 
-    await service.startDiagnosis(createdOs.id);
-    expect(dbState.workOrders[createdOs.id].status).toBe('IN_DIAGNOSIS');
+  const publishedPatterns = () => rabbitMQ.getPublishedEvents().map((e) => e.pattern);
 
-    // E adiciona o serviço "srv-troca-oleo" no valor de 150 e 2 unidades da peça "peca-filtro" no valor unitário de 50
-    await service.addServiceItem(createdOs.id, {
-      serviceId: 'srv-troca-oleo',
-      quantity: 1,
-    });
-    await service.addPartItem(createdOs.id, {
-      inventoryItemId: 'peca-filtro',
-      plannedQuantity: 2,
-    });
+  // ---------------------------------------------------------------------------
+  // Cenário 1
+  // ---------------------------------------------------------------------------
+  test('Fluxo completo de sucesso de uma Ordem de Serviço pela Saga', ({
+    given,
+    when,
+    then,
+    and,
+  }) => {
+    clienteComVeiculoEPeca(given);
 
-    // E move a Ordem de Serviço para aguardando aprovação disparando a Saga
-    await service.moveToAwaitingApproval(createdOs.id);
-
-    // Então o estoque da peça "peca-filtro" deve ser reservado restando 8 unidades
-    expect(dbState.inventory['peca-filtro'].quantityAvailable).toBe(8);
-
-    // E o evento "os.budget.requested" deve ser publicado com valor total de 250
-    const eventsAfterBudgetReq = rabbitMQ.getPublishedEvents();
-    expect(eventsAfterBudgetReq).toHaveLength(1);
-    expect(eventsAfterBudgetReq[0].pattern).toBe(
-      SagaEventPattern.OS_BUDGET_REQUESTED,
-    );
-    expect(eventsAfterBudgetReq[0].payload.totalAmount).toBe(250);
-
-    // Quando o evento "payment.approved" é recebido do microsserviço de Billing
-    await rabbitMQ.dispatchEvent(SagaEventPattern.PAYMENT_APPROVED, {
-      event: SagaEventPattern.PAYMENT_APPROVED,
-      workOrderId: createdOs.id,
-      budgetId: 'budget-01',
-      paymentId: 'mp-999',
-      totalAmount: 250,
-      approvedAt: new Date().toISOString(),
+    when('o atendente abre uma nova Ordem de Serviço e inicia o diagnóstico', async () => {
+      await abrirOsEIniciarDiagnostico();
     });
 
-    // Então a Ordem de Serviço deve mudar para o status "IN_EXECUTION"
-    expect(dbState.workOrders[createdOs.id].status).toBe('IN_EXECUTION');
-
-    // E o evento "os.execution.requested" deve ser publicado para o microsserviço de Execução
-    const eventsAfterApproval = rabbitMQ.getPublishedEvents();
-    expect(eventsAfterApproval).toHaveLength(2);
-    expect(eventsAfterApproval[1].pattern).toBe(
-      SagaEventPattern.OS_EXECUTION_REQUESTED,
+    and(
+      /^adiciona o serviço "(.*)" no valor de (\d+) e (\d+) unidades da peça "(.*)" no valor unitário de (\d+)$/,
+      async (serviceId: string, price: string, quantity: string, partId: string, unitPrice: string) => {
+        dbState.services[serviceId] = {
+          id: serviceId,
+          name: serviceId,
+          basePrice: Number(price),
+          estimatedTimeMinutes: 45,
+          isActive: true,
+        };
+        dbState.inventory[partId].unitPrice = Number(unitPrice);
+        await service.addServiceItem(workOrderId, { serviceId, quantity: 1 });
+        await service.addPartItem(workOrderId, {
+          inventoryItemId: partId,
+          plannedQuantity: Number(quantity),
+        });
+      },
     );
 
-    // Quando o evento "execution.finished" é recebido do microsserviço de Execução e o veículo é entregue
-    await rabbitMQ.dispatchEvent(SagaEventPattern.EXECUTION_FINISHED, {
-      event: SagaEventPattern.EXECUTION_FINISHED,
-      workOrderId: createdOs.id,
-      executionId: 'exec-01',
-      finishedAt: new Date().toISOString(),
+    and('move a Ordem de Serviço para aguardando aprovação disparando a Saga', async () => {
+      await service.moveToAwaitingApproval(workOrderId);
     });
-    expect(dbState.workOrders[createdOs.id].status).toBe('FINISHED');
 
-    const deliveredOs = await service.deliver(createdOs.id);
+    then(
+      /^o estoque da peça "(.*)" deve ser reservado restando (\d+) unidades$/,
+      (partId: string, remaining: string) => {
+        expect(dbState.inventory[partId].quantityAvailable).toBe(Number(remaining));
+      },
+    );
 
-    // Então a Ordem de Serviço deve alcançar o status final "DELIVERED"
-    expect(deliveredOs.status).toBe('DELIVERED');
+    and(
+      /^o evento "(.*)" deve ser publicado com valor total de (\d+)$/,
+      (pattern: string, total: string) => {
+        const event = rabbitMQ.getPublishedEvents().find((e) => e.pattern === pattern);
+        expect(event).toBeDefined();
+        expect(event?.payload.totalAmount).toBe(Number(total));
+      },
+    );
+
+    when(/^o evento "(.*)" é recebido do microsserviço de Billing$/, async (pattern: string) => {
+      await rabbitMQ.dispatchEvent(pattern, {
+        event: pattern,
+        workOrderId,
+        budgetId: 'budget-01',
+        paymentId: 'mp-999',
+        totalAmount: 250,
+        approvedAt: new Date().toISOString(),
+      });
+    });
+
+    statusDaOs(then);
+
+    and(/^o evento "(.*)" deve ser publicado para o microsserviço de Execução$/, (pattern: string) => {
+      expect(publishedPatterns()).toContain(pattern);
+    });
+
+    when(
+      /^o evento "(.*)" é recebido do microsserviço de Execução e o veículo é entregue$/,
+      async (pattern: string) => {
+        await rabbitMQ.dispatchEvent(pattern, {
+          event: pattern,
+          workOrderId,
+          executionId: 'exec-01',
+          finishedAt: new Date().toISOString(),
+        });
+        expect(dbState.workOrders[workOrderId].status).toBe('FINISHED');
+        await service.deliver(workOrderId);
+      },
+    );
+
+    then(/^a Ordem de Serviço deve alcançar o status final "(.*)"$/, (status: string) => {
+      expect(dbState.workOrders[workOrderId].status).toBe(status);
+    });
   });
 
-  it('Cenário BDD 2: Compensação e Rollback da Saga quando o pagamento é recusado', async () => {
-    // Dado um cliente ativo "cliente-01" com um veículo "veiculo-01" e uma peça "peca-pastilha" com 5 unidades em estoque
-    dbState.customers['cliente-01'] = { id: 'cliente-01', name: 'Carlos Silva', isActive: true };
-    dbState.vehicles['veiculo-01'] = { id: 'veiculo-01', customerId: 'cliente-01', plate: 'ABC1D23' };
-    dbState.inventory['peca-pastilha'] = {
-      id: 'peca-pastilha',
-      name: 'Jogo de Pastilhas',
-      itemType: 'PART',
-      unitPrice: 120,
-      quantityAvailable: 5,
-      isActive: true,
-    };
+  // ---------------------------------------------------------------------------
+  // Cenário 2
+  // ---------------------------------------------------------------------------
+  test('Compensação e Rollback da Saga quando o pagamento é recusado', ({
+    given,
+    when,
+    then,
+    and,
+  }) => {
+    clienteComVeiculoEPeca(given);
 
-    // Quando o atendente abre uma OS, inicia o diagnóstico, adiciona 2 unidades da peça "peca-pastilha" e solicita aprovação
-    const os = await service.create({
-      customerId: 'cliente-01',
-      vehicleId: 'veiculo-01',
-    });
-    await service.startDiagnosis(os.id);
-    await service.addPartItem(os.id, {
-      inventoryItemId: 'peca-pastilha',
-      plannedQuantity: 2,
-    });
-    await service.moveToAwaitingApproval(os.id);
-
-    // Então o estoque da peça "peca-pastilha" cai para 3 unidades e a OS fica em "WAITING_APPROVAL"
-    expect(dbState.inventory['peca-pastilha'].quantityAvailable).toBe(3);
-    expect(dbState.workOrders[os.id].status).toBe('WAITING_APPROVAL');
-
-    // Quando o evento "payment.failed" é recebido por recusa no Mercado Pago
-    await rabbitMQ.dispatchEvent(SagaEventPattern.PAYMENT_FAILED, {
-      event: SagaEventPattern.PAYMENT_FAILED,
-      workOrderId: os.id,
-      reason: 'Cartão recusado no Mercado Pago',
-      failedAt: new Date().toISOString(),
-    });
-
-    // Então a transação compensatória deve estornar 2 unidades para a peça "peca-pastilha" restaurando o estoque para 5
-    expect(dbState.inventory['peca-pastilha'].quantityAvailable).toBe(5);
-
-    // E um movimento de estoque do tipo "REVERSAL" deve ser registrado
-    const reversalMovement = dbState.movements.find(
-      (m) => m.movementType === 'REVERSAL',
+    when(
+      /^o atendente abre uma OS, inicia o diagnóstico, adiciona (\d+) unidades da peça "(.*)" e solicita aprovação$/,
+      async (quantity: string, partId: string) => {
+        await abrirOsEIniciarDiagnostico();
+        await service.addPartItem(workOrderId, {
+          inventoryItemId: partId,
+          plannedQuantity: Number(quantity),
+        });
+        await service.moveToAwaitingApproval(workOrderId);
+      },
     );
-    expect(reversalMovement).toBeDefined();
-    expect(reversalMovement.quantity).toBe(2);
 
-    // E a Ordem de Serviço deve mudar para o status "CANCELLED"
-    expect(dbState.workOrders[os.id].status).toBe('CANCELLED');
+    then(
+      /^o estoque da peça "(.*)" cai para (\d+) unidades e a OS fica em "(.*)"$/,
+      (partId: string, remaining: string, status: string) => {
+        expect(dbState.inventory[partId].quantityAvailable).toBe(Number(remaining));
+        expect(dbState.workOrders[workOrderId].status).toBe(status);
+      },
+    );
+
+    when(/^o evento "(.*)" é recebido por recusa no Mercado Pago$/, async (pattern: string) => {
+      await rabbitMQ.dispatchEvent(pattern, {
+        event: pattern,
+        workOrderId,
+        reason: 'Cartão recusado no Mercado Pago',
+        failedAt: new Date().toISOString(),
+      });
+    });
+
+    then(
+      /^a transação compensatória deve estornar (\d+) unidades para a peça "(.*)" restaurando o estoque para (\d+)$/,
+      (quantity: string, partId: string, restored: string) => {
+        expect(dbState.inventory[partId].quantityAvailable).toBe(Number(restored));
+        const reversal = dbState.movements.find(
+          (m) => m.movementType === 'REVERSAL' && m.inventoryItemId === partId,
+        );
+        expect(reversal?.quantity).toBe(Number(quantity));
+      },
+    );
+
+    and(/^um movimento de estoque do tipo "(.*)" deve ser registrado$/, (type: string) => {
+      expect(dbState.movements.some((m) => m.movementType === type)).toBe(true);
+    });
+
+    statusDaOs(and);
   });
 });

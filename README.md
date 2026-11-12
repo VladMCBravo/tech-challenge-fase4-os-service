@@ -59,7 +59,16 @@ flowchart TB
 
 ## 3. Evidências de Testes Unitários, BDD e Cobertura (`> 80%`)
 
-O serviço possui **12 suítes de testes (127 testes passando, 0 falhas)**, incluindo especificação **BDD em Gherkin** (`src/work-orders/features/work-order-saga.feature` e `src/work-orders/work-order-saga.bdd.spec.ts`):
+O serviço possui **12 suítes de testes (126 testes passando, 0 falhas)**, incluindo **BDD executável com [jest-cucumber](https://github.com/bencompton/jest-cucumber)**: os cenários escritos em Gherkin (`src/work-orders/features/work-order-saga.feature`) são carregados por `src/work-orders/work-order-saga.bdd.spec.ts`, e cada passo (`Dado`/`Quando`/`Então`/`E`) é ligado a uma step definition. Se um passo do `.feature` mudar ou ficar sem implementação, o teste falha.
+
+```text
+PASS src/work-orders/work-order-saga.bdd.spec.ts
+  Funcionalidade: Fluxo Transacional de Ordem de Serviço com Saga Pattern
+    ✓ Fluxo completo de sucesso de uma Ordem de Serviço pela Saga
+    ✓ Compensação e Rollback da Saga quando o pagamento é recusado
+```
+
+Saída completa da suíte e cobertura:
 
 ```text
 PASS src/app.controller.spec.ts
@@ -94,7 +103,7 @@ All files                                       |   94.45 |    79.67 |   98.46 |
  src/work-orders/infrastructure/email           |     100 |      100 |     100 |     100 |                                           
 ------------------------------------------------|---------|----------|---------|---------|-------------------------------------------
 Test Suites: 12 passed, 12 total
-Tests:       127 passed, 127 total
+Tests:       126 passed, 126 total
 ```
 
 ---
@@ -105,7 +114,7 @@ Pipeline: [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) — d
 
 | Job | O que faz |
 |---|---|
-| `test-and-quality` | `npm ci` → testes unitários + BDD com cobertura (`npm run test:cov`) → build → análise SonarQube/SonarCloud |
+| `test-and-quality` | `npm ci` → testes unitários + BDD (jest-cucumber) com cobertura (`npm run test:cov`) → build → análise SonarQube/SonarCloud |
 | `build-and-deploy` | build da imagem Docker → cria cluster Kubernetes **Kind** → instala o metrics-server (HPA) → executa [`scripts/deploy-k8s.sh`](./scripts/deploy-k8s.sh) |
 
 O script [`scripts/deploy-k8s.sh`](./scripts/deploy-k8s.sh) faz o deploy completo e **falha o pipeline** se algo não subir:
