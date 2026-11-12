@@ -59,49 +59,65 @@ flowchart TB
 
 ## 3. Evidências de Testes Unitários, BDD e Cobertura (`> 80%`)
 
-O serviço possui **11 suítes de testes (117 testes passando, 0 falhas)**, incluindo especificação **BDD em Gherkin** (`src/work-orders/features/work-order-saga.feature` e `src/work-orders/work-order-saga.bdd.spec.ts`):
+O serviço possui **12 suítes de testes (127 testes passando, 0 falhas)**, incluindo especificação **BDD em Gherkin** (`src/work-orders/features/work-order-saga.feature` e `src/work-orders/work-order-saga.bdd.spec.ts`):
 
 ```text
-PASS src/shared/validators/plate.validator.spec.ts
-PASS src/shared/validators/document.validator.spec.ts
-PASS src/services/services.service.spec.ts
-PASS src/auth/auth.service.spec.ts
 PASS src/app.controller.spec.ts
+PASS src/auth/auth.service.spec.ts
 PASS src/customers/customers.service.spec.ts
-PASS src/vehicles/vehicles.service.spec.ts
 PASS src/inventory/inventory.service.spec.ts
-PASS src/work-orders/work-order-saga.bdd.spec.ts
+PASS src/messaging/rabbitmq.service.spec.ts
+PASS src/services/services.service.spec.ts
+PASS src/shared/validators/document.validator.spec.ts
+PASS src/shared/validators/plate.validator.spec.ts
+PASS src/vehicles/vehicles.service.spec.ts
 PASS src/work-orders/application/use-cases/work-order-use-cases.spec.ts
+PASS src/work-orders/work-order-saga.bdd.spec.ts
 PASS src/work-orders/work-orders.service.spec.ts
--------------------|---------|----------|---------|---------|-------------------
-File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
--------------------|---------|----------|---------|---------|-------------------
-All files          |   90.09 |    76.57 |   96.66 |    90.5 |                   
- src/auth          |   95.23 |    81.25 |     100 |   94.73 |                   
- src/customers     |   95.65 |    88.23 |     100 |   95.45 |                   
- src/inventory     |   97.14 |    78.94 |     100 |   97.05 |                   
- src/observability |   85.71 |       75 |     100 |   84.21 |                   
- src/services      |   93.54 |    77.77 |     100 |    93.1 |                   
- src/validators    |   94.91 |    79.16 |     100 |     100 |                   
- src/vehicles      |   89.79 |    73.07 |     100 |   89.36 |                   
- src/work-orders   |   93.51 |    72.72 |   96.96 |   93.95 |                   
- ...tion/use-cases |     100 |      100 |     100 |     100 |                   
- ...atabase/prisma |     100 |     62.5 |     100 |     100 |                   
--------------------|---------|----------|---------|---------|-------------------
-Test Suites: 11 passed, 11 total
-Tests:       117 passed, 117 total
+
+------------------------------------------------|---------|----------|---------|---------|-------------------------------------------
+File                                            | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                         
+------------------------------------------------|---------|----------|---------|---------|-------------------------------------------
+All files                                       |   94.45 |    79.67 |   98.46 |   95.27 |                                           
+ src                                            |       0 |      100 |       0 |       0 |                                           
+ src/auth                                       |   95.23 |    81.25 |     100 |   94.73 |                                           
+ src/customers                                  |   95.65 |    88.23 |     100 |   95.45 |                                           
+ src/inventory                                  |   97.14 |    78.94 |     100 |   97.05 |                                           
+ src/messaging                                  |   98.14 |    90.19 |     100 |     100 |                                           
+ src/observability                              |   85.71 |       75 |     100 |   84.21 |                                           
+ src/services                                   |   93.54 |    77.77 |     100 |    93.1 |                                           
+ src/shared/validators                          |   94.91 |    79.16 |     100 |     100 |                                           
+ src/vehicles                                   |   89.79 |    73.07 |     100 |   89.36 |                                           
+ src/work-orders                                |   93.51 |    72.72 |   96.96 |   93.95 |                                           
+ src/work-orders/application/use-cases          |     100 |      100 |     100 |     100 |                                           
+ src/work-orders/infrastructure/database/prisma |     100 |     62.5 |     100 |     100 |                                           
+ src/work-orders/infrastructure/email           |     100 |      100 |     100 |     100 |                                           
+------------------------------------------------|---------|----------|---------|---------|-------------------------------------------
+Test Suites: 12 passed, 12 total
+Tests:       127 passed, 127 total
 ```
 
 ---
 
 ## 4. CI/CD, Deploy Automatizado em Kubernetes e Nota sobre AWS Academy
 
-Conforme orientação da coordenação e dos professores da FIAP (referente à expiração de sessão/créditos do laboratório **AWS Academy**):
-1. **Gatilhos Automatizados e `workflow_dispatch`:** O pipeline `.github/workflows/deploy.yml` é disparado automaticamente em `push` e `pull_request` na branch `main`, além de contar com `workflow_dispatch` para disparo sob demanda quando o laboratório AWS estiver ativo.
-2. **Deploy Kubernetes Automatizado no Pipeline (Kind + AWS EKS):**
-   - Em **todas as execuções do CI/CD**, o job `deploy-k8s` provisiona automaticamente um cluster Kubernetes real via **Kind (`helm/kind-action`)**, aplica todos os manifestos (`k8s/rabbitmq.yaml`, `k8s/secret.yaml`, `k8s/deployment.yaml`, `k8s/service.yaml`, `k8s/hpa.yaml`) e valida os Pods, Services, HPA e Health Checks.
-   - Quando as credenciais temporárias do **AWS Academy** (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`) estão ativas nos Secrets, o pipeline também realiza o push da imagem para o **Amazon ECR** e o rollout automatizado no **Amazon EKS**.
-3. **Infraestrutura Terraform Isolada (`/infra`):** A pasta [`/infra`](./infra) contém os recursos Terraform exclusivos deste microsserviço (repositório ECR e instância RDS PostgreSQL `os_db`).
+Pipeline: [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) — disparado automaticamente em `push` e `pull_request` na `main` (e `workflow_dispatch`). A `main` é protegida: o merge só acontece via Pull Request com os dois jobs abaixo aprovados.
+
+| Job | O que faz |
+|---|---|
+| `test-and-quality` | `npm ci` → testes unitários + BDD com cobertura (`npm run test:cov`) → build → análise SonarQube/SonarCloud |
+| `build-and-deploy` | build da imagem Docker → cria cluster Kubernetes **Kind** → instala o metrics-server (HPA) → executa [`scripts/deploy-k8s.sh`](./scripts/deploy-k8s.sh) |
+
+O script [`scripts/deploy-k8s.sh`](./scripts/deploy-k8s.sh) faz o deploy completo e **falha o pipeline** se algo não subir:
+1. Sobe as dependências próprias do serviço — `k8s/postgres.yaml` (PostgreSQL `os_db`) e `k8s/rabbitmq.yaml` (broker da Saga) — e espera ficarem prontas;
+2. Aplica `secret.yaml`, `deployment.yaml`, `service.yaml` e `hpa.yaml`;
+3. Espera o `kubectl rollout status` do `os-service` (2 réplicas Ready);
+4. Testa os health checks pelo Service: `GET /api/health` e `GET /api/health/ready` (banco **e** RabbitMQ conectados — `"messaging":"connected"`);
+5. Imprime as evidências: deployments, pods, services, HPA e logs de conexão com o RabbitMQ.
+
+Para rodar localmente contra qualquer cluster (ex.: Kind): `kind create cluster && docker build -t oficina-os-service:latest . && kind load docker-image oficina-os-service:latest && ./scripts/deploy-k8s.sh`.
+
+**Nota sobre o AWS Academy:** as sessões do laboratório expiram e os créditos são limitados, então — conforme orientação dos professores — o deploy automatizado do pipeline é feito em Kubernetes local (**Kind**) dentro do próprio GitHub Actions, com manifests, script de deploy e evidências de pods/services/health checks nos logs de cada execução. Os mesmos manifestos são aplicáveis no Amazon EKS provisionado pelo Terraform (`/infra` e repositório `tech-challenge-fase3-infra-k8s`); nesse caso o `DATABASE_URL`/`MONGODB_URI` do Secret aponta para o banco gerenciado.
 
 ---
 
@@ -124,12 +140,31 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/os_db" npx prisma generate
 npm run test:cov
 ```
 
-### Deploy Kubernetes (EKS / Kind)
-Automatizado via GitHub Actions ([`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)) ou via kubectl:
+### Deploy Kubernetes (Kind / EKS)
+Automatizado via GitHub Actions ([`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)) ou manualmente com o mesmo script do pipeline:
 ```bash
-kubectl apply -f k8s/rabbitmq.yaml
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/hpa.yaml
+kind create cluster --name oficina-k8s
+docker build -t oficina-os-service:latest . && kind load docker-image oficina-os-service:latest --name oficina-k8s
+./scripts/deploy-k8s.sh   # PostgreSQL + RabbitMQ + Deployment/Service/HPA + health checks + evidências
+```
+
+### Teste ponta a ponta da Saga (3 microsserviços + RabbitMQ)
+Com os 3 serviços no ar (docker compose ou Kubernetes com `kubectl port-forward`), o script [`scripts/saga-e2e.sh`](./scripts/saga-e2e.sh) executa os dois cenários da Saga e valida cada transição de estado:
+```bash
+OS_URL=http://localhost:3000/api BILLING_URL=http://localhost:3001/api EXECUTION_URL=http://localhost:3002/api ./scripts/saga-e2e.sh
+```
+```text
+==> Cenário 1: fluxo completo de sucesso
+   ✔ OS aguardando aprovação: WAITING_APPROVAL
+   ✔ Billing gerou orçamento (os.budget.requested): PENDING
+   ✔ Orçamento aprovado no Billing: APPROVED
+   ✔ OS em execução (payment.approved): IN_EXECUTION
+   ✔ OS na fila do MongoDB (os.execution.requested): QUEUED
+   ✔ Execução concluída no MongoDB: COMPLETED
+   ✔ OS finalizada (execution.finished): FINISHED
+==> Cenário 2: pagamento recusado -> compensação
+   ✔ Billing gerou orçamento (os.budget.requested): PENDING
+   ✔ Orçamento rejeitado no Billing: REJECTED
+   ✔ OS cancelada pela compensação (payment.failed): CANCELLED
+Saga validada ponta a ponta nos 3 microsserviços.
 ```

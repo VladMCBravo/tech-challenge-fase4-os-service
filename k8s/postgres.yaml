@@ -1,0 +1,76 @@
+# Banco relacional PRÓPRIO do os-service (Database per Service).
+# Usado no deploy automatizado em Kubernetes local (Kind) e em ambientes sem RDS.
+# No Amazon EKS com RDS, basta apontar o DATABASE_URL do Secret para o endpoint do RDS
+# (repositório tech-challenge-fase3-infra-db) e não aplicar este manifesto.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: os-postgres-credentials
+type: Opaque
+stringData:
+  POSTGRES_USER: "postgres"
+  POSTGRES_PASSWORD: "postgres"
+  POSTGRES_DB: "os_db"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: os-postgres
+  labels:
+    app: os-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: os-postgres
+  template:
+    metadata:
+      labels:
+        app: os-postgres
+    spec:
+      # A aplicação não acessa a API do Kubernetes: não monta o token da service account
+      automountServiceAccountToken: false
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: os-postgres-credentials
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ['/bin/sh', '-c', 'pg_isready -U postgres -d os_db']
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              ephemeral-storage: "64Mi"
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              ephemeral-storage: "1Gi"
+              memory: "512Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: os-postgres-service
+spec:
+  selector:
+    app: os-postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP

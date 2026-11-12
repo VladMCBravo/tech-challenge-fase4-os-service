@@ -125,8 +125,8 @@ Foi adotado o **Saga Pattern Coreografado (Event-Driven Choreography)** utilizan
 
 | Microsserviço | Suítes / Testes | Cobertura (Lines) | BDD / SonarQube / Deploy K8s Automatizado |
 | :--- | :---: | :---: | :--- |
-| **`os-service`** | 11 suítes / 117 testes | **90,50%** | Fluxo completo + Rollback em Gherkin (`work-order-saga.feature`) + SonarQube + Deploy K8s (Kind/EKS) |
-| **`billing-service`** | 1 suíte / 10 testes | **83,68%** | OAuth2 Token (`client_id`/`client_secret`) + Checkout/PIX Mercado Pago + Rollback `REFUNDED` + SonarQube + Deploy K8s |
-| **`execution-service`** | 1 suíte / 7 testes | **81,40%** | Fila NoSQL MongoDB + Eventos Saga + Rollback + SonarQube + Deploy K8s |
+| **`os-service`** | 12 suítes / 127 testes | **95,27%** | Fluxo completo + Rollback em Gherkin (`work-order-saga.feature`) + SonarQube + Deploy K8s (Kind/EKS) |
+| **`billing-service`** | 2 suítes / 20 testes | **97,44%** | OAuth2 Token (`client_id`/`client_secret`) + Checkout/PIX Mercado Pago + Rollback `REFUNDED` + SonarQube + Deploy K8s |
+| **`execution-service`** | 2 suítes / 17 testes | **90,15%** | Fila NoSQL MongoDB + Eventos Saga + Rollback + SonarQube + Deploy K8s |
 
 > **Nota sobre Deploy Automatizado e AWS Academy:** Os workflows `.github/workflows/deploy.yml` dos 3 repositórios executam em `push`, `pull_request` e `workflow_dispatch`, realizando deploy automatizado em cluster Kubernetes via **Kind (`helm/kind-action`)** (com validação de Pods, Services e HPA no próprio pipeline) e no **Amazon EKS** quando as credenciais de sessão do AWS Academy estão ativas.
