@@ -208,11 +208,11 @@ Convite enviado ao usuário `soat-architecture` (FIAP SOAT) nos repositórios do
 ![Convite ao soat-architecture em Collaborators](docs/evidencias/04-colaborador-soat-architecture.png)
 
 ### Proteção da branch `main`
-Regra de proteção ativa na `main`: **Require a pull request before merging** e **Require status checks to pass before merging** (job `test-and-quality` obrigatório) — nenhuma alteração entra na `main` sem PR e sem o pipeline aprovado.
+Regra de proteção ativa na `main`: **Require a pull request before merging** e **Require status checks to pass before merging**, com os jobs **`test-and-quality`** e **`build-and-deploy`** obrigatórios — nenhuma alteração entra na `main` sem PR, sem testes/qualidade aprovados e sem o deploy no Kubernetes validado.
 
 ![Regra de proteção da branch main](docs/evidencias/06-protecao-branch-main.png)
 
 ### Pull Request com checagens automáticas
-Exemplo de PR (execution-service): o merge só é liberado após os jobs `test-and-quality` (obrigatório) e `build-and-deploy` e a análise do SonarCloud passarem — o bot do SonarQube Cloud comenta o resultado do Quality Gate no próprio PR. O mesmo fluxo é usado nos 3 microsserviços.
+PR #5 do os-service: o merge só é liberado após os jobs `test-and-quality` e `build-and-deploy` e a análise do SonarCloud passarem — o bot do SonarQube Cloud comenta o resultado do Quality Gate no próprio PR.
 
 ![PR com todas as checagens aprovadas e Quality Gate do SonarCloud](docs/evidencias/07-pr-checks-quality-gate.png)
