@@ -68,6 +68,8 @@ PASS src/work-orders/work-order-saga.bdd.spec.ts
     ✓ Compensação e Rollback da Saga quando o pagamento é recusado
 ```
 
+**Testes end-to-end da API HTTP** (`test/app.e2e-spec.ts`, `npm run test:e2e`, executados no pipeline): sobem o `AppModule` completo com a mesma configuração do `main.ts` (prefixo `/api`, `ValidationPipe`, guard JWT) e chamam a API via HTTP com supertest — health checks (200/503), rotas administrativas sem token/token inválido (401) e com JWT válido (200), validação de payload (400), CPF com dígito verificador inválido (400), criação de cliente com documento normalizado (201) e documento duplicado (400). O fluxo ponta a ponta entre os 3 microsserviços com RabbitMQ, PostgreSQL e MongoDB reais é coberto por [`scripts/saga-e2e.sh`](./scripts/saga-e2e.sh) (seção 5).
+
 Saída completa da suíte e cobertura:
 
 ```text
@@ -114,7 +116,7 @@ Pipeline: [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) — d
 
 | Job | O que faz |
 |---|---|
-| `test-and-quality` | `npm ci` → testes unitários + BDD (jest-cucumber) com cobertura (`npm run test:cov`) → build → análise SonarQube/SonarCloud |
+| `test-and-quality` | `npm ci` → testes unitários + BDD (jest-cucumber) com cobertura + e2e da API HTTP (`npm run test:cov`) → build → análise SonarQube/SonarCloud |
 | `build-and-deploy` | build da imagem Docker → cria cluster Kubernetes **Kind** → instala o metrics-server (HPA) → executa [`scripts/deploy-k8s.sh`](./scripts/deploy-k8s.sh) |
 
 O script [`scripts/deploy-k8s.sh`](./scripts/deploy-k8s.sh) faz o deploy completo e **falha o pipeline** se algo não subir:
