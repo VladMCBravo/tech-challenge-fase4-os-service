@@ -197,7 +197,17 @@ Todas as alterações entram na `main` via Pull Request (branch protegida); o pi
 
 ![Run da main com os dois jobs aprovados](docs/evidencias/03-pipeline-main.png)
 
+### Deploy automatizado em Kubernetes (Kind) com health checks
+Log da etapa `scripts/deploy-k8s.sh` no pipeline: dependências próprias (PostgreSQL `os_db` + RabbitMQ) prontas, rollout das 2 réplicas do `os-service`, health checks (`/api/health` e `/api/health/ready` com banco e mensageria conectados), deployments/pods/services/HPA e logs JSON de conexão ao RabbitMQ.
+
+![Deploy no Kubernetes com pods, services, HPA e health checks](docs/evidencias/05-deploy-k8s-health-checks.png)
+
 ### Acesso do avaliador
 Convite enviado ao usuário `soat-architecture` (FIAP SOAT) nos repositórios do projeto.
 
 ![Convite ao soat-architecture em Collaborators](docs/evidencias/04-colaborador-soat-architecture.png)
+
+### Proteção da branch `main`
+Regra de proteção ativa na `main`: alterações somente via Pull Request com checagens automáticas do pipeline.
+
+![Regra de proteção da branch main](docs/evidencias/06-protecao-branch-main.png)
