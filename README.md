@@ -177,3 +177,42 @@ OS_URL=http://localhost:3000/api BILLING_URL=http://localhost:3001/api EXECUTION
    ✔ OS cancelada pela compensação (payment.failed): CANCELLED
 Saga validada ponta a ponta nos 3 microsserviços.
 ```
+
+---
+
+## 6. Evidências (SonarCloud, CI/CD e Deploy)
+
+### Qualidade de código — SonarCloud (Quality Gate aprovado nos 3 microsserviços)
+Análise executada pelo próprio pipeline (`sonarqube-scan-action` com Quality Gate bloqueante), com cobertura importada do `lcov.info` do Jest.
+
+![Painel do SonarCloud com os 3 microsserviços aprovados](docs/evidencias/01-sonarcloud-quality-gate.png)
+
+### Pipeline CI/CD — execuções automáticas em Pull Request e em merge na `main`
+Todas as alterações entram na `main` via Pull Request (branch protegida); o pipeline roda no PR e novamente após o merge.
+
+![Execuções do GitHub Actions do os-service](docs/evidencias/02-actions-runs.png)
+
+### Pipeline da `main` — `test-and-quality` → `build-and-deploy`
+`test-and-quality`: testes + BDD com cobertura mínima de 80%, build e SonarCloud. `build-and-deploy`: imagem Docker, cluster Kubernetes (Kind), deploy via [`scripts/deploy-k8s.sh`](./scripts/deploy-k8s.sh) e health checks.
+
+![Run da main com os dois jobs aprovados](docs/evidencias/03-pipeline-main.png)
+
+### Deploy automatizado em Kubernetes (Kind) com health checks
+Log da etapa `scripts/deploy-k8s.sh` no pipeline: dependências próprias (PostgreSQL `os_db` + RabbitMQ) prontas, rollout das 2 réplicas do `os-service`, health checks (`/api/health` e `/api/health/ready` com banco e mensageria conectados), deployments/pods/services/HPA e logs JSON de conexão ao RabbitMQ.
+
+![Deploy no Kubernetes com pods, services, HPA e health checks](docs/evidencias/05-deploy-k8s-health-checks.png)
+
+### Acesso do avaliador
+Convite enviado ao usuário `soat-architecture` (FIAP SOAT) nos repositórios do projeto.
+
+![Convite ao soat-architecture em Collaborators](docs/evidencias/04-colaborador-soat-architecture.png)
+
+### Proteção da branch `main`
+Regra de proteção ativa na `main`: **Require a pull request before merging** e **Require status checks to pass before merging** (job `test-and-quality` obrigatório) — nenhuma alteração entra na `main` sem PR e sem o pipeline aprovado.
+
+![Regra de proteção da branch main](docs/evidencias/06-protecao-branch-main.png)
+
+### Pull Request com checagens automáticas
+Exemplo de PR (execution-service): o merge só é liberado após os jobs `test-and-quality` (obrigatório) e `build-and-deploy` e a análise do SonarCloud passarem — o bot do SonarQube Cloud comenta o resultado do Quality Gate no próprio PR. O mesmo fluxo é usado nos 3 microsserviços.
+
+![PR com todas as checagens aprovadas e Quality Gate do SonarCloud](docs/evidencias/07-pr-checks-quality-gate.png)
