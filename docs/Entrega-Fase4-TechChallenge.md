@@ -125,7 +125,7 @@ Foi adotado o **Saga Pattern Coreografado (Event-Driven Choreography)** utilizan
 
 | Microsserviço | Suítes / Testes | Cobertura (Lines) | BDD / SonarQube / Deploy K8s Automatizado |
 | :--- | :---: | :---: | :--- |
-| **`os-service`** | 12 suítes / 127 testes | **95,27%** | Fluxo completo + Rollback em Gherkin (`work-order-saga.feature`) + SonarQube + Deploy K8s (Kind/EKS) |
+| **`os-service`** | 12 suítes / 126 testes | **95,27%** | BDD executável (jest-cucumber): fluxo completo + rollback em Gherkin (`work-order-saga.feature`) + SonarQube + Deploy K8s (Kind/EKS) |
 | **`billing-service`** | 2 suítes / 20 testes | **97,44%** | OAuth2 Token (`client_id`/`client_secret`) + Checkout/PIX Mercado Pago + Rollback `REFUNDED` + SonarQube + Deploy K8s |
 | **`execution-service`** | 2 suítes / 17 testes | **90,15%** | Fila NoSQL MongoDB + Eventos Saga + Rollback + SonarQube + Deploy K8s |
 
