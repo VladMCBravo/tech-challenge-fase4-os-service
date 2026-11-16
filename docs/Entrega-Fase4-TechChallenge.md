@@ -121,12 +121,18 @@ Foi adotado o **Saga Pattern Coreografado (Event-Driven Choreography)** utilizan
 
 ---
 
-## 6. Qualidade, Testes Unitários (`> 80%`), BDD e CI/CD Kubernetes
+## 6. Qualidade, Testes (`> 80%`), BDD, CI/CD e Observabilidade
 
-| Microsserviço | Suítes / Testes | Cobertura (Lines) | BDD / SonarQube / Deploy K8s Automatizado |
-| :--- | :---: | :---: | :--- |
-| **`os-service`** | 12 suítes / 126 testes | **95,27%** | BDD executável (jest-cucumber): fluxo completo + rollback em Gherkin (`work-order-saga.feature`) + SonarQube + Deploy K8s (Kind/EKS) |
-| **`billing-service`** | 2 suítes / 20 testes | **97,44%** | OAuth2 Token (`client_id`/`client_secret`) + Checkout/PIX Mercado Pago + Rollback `REFUNDED` + SonarQube + Deploy K8s |
-| **`execution-service`** | 2 suítes / 17 testes | **90,15%** | Fila NoSQL MongoDB + Eventos Saga + Rollback + SonarQube + Deploy K8s |
+| Microsserviço | Testes | Cobertura (Jest) | SonarCloud | Destaques |
+| :--- | :--- | :---: | :--- | :--- |
+| **`os-service`** | 126 unitários + BDD · 11 e2e HTTP | **95,3%** | Quality Gate **Passed** · 87,5% · A/A/A | BDD executável com **jest-cucumber** (Gherkin `work-order-saga.feature`: fluxo completo + rollback) · e2e da API com supertest |
+| **`billing-service`** | 20 unitários | **97,4%** | Quality Gate **Passed** · 87,2% · A/A/A | OAuth2 `client_id`/`client_secret` · Checkout/PIX · estorno `REFUNDED` · RabbitMQ |
+| **`execution-service`** | 17 unitários | **90,2%** | Quality Gate **Passed** · 82,9% · A/A/A | Fila NoSQL MongoDB · eventos e compensação da Saga · RabbitMQ |
 
-> **Nota sobre Deploy Automatizado e AWS Academy:** Os workflows `.github/workflows/deploy.yml` dos 3 repositórios executam em `push`, `pull_request` e `workflow_dispatch`, realizando deploy automatizado em cluster Kubernetes via **Kind (`helm/kind-action`)** (com validação de Pods, Services e HPA no próprio pipeline) e no **Amazon EKS** quando as credenciais de sessão do AWS Academy estão ativas.
+- **CI/CD (GitHub Actions, um pipeline por repositório):** `test-and-quality` (testes com cobertura mínima de 80% como gate do Jest, build e análise **SonarCloud com Quality Gate bloqueante**) → `build-and-deploy` (imagem Docker → cluster Kubernetes **Kind** → `scripts/deploy-k8s.sh`: banco próprio + RabbitMQ, rollout das 2 réplicas, **health checks** com banco e mensageria conectados, Pods/Services/HPA).
+- **Repositórios protegidos:** `main` só recebe alterações via **Pull Request**, com `test-and-quality` e `build-and-deploy` como checks obrigatórios e o resultado do SonarCloud comentado no PR.
+- **Saga ponta a ponta:** `scripts/saga-e2e.sh` valida, no cluster, o fluxo de sucesso e as duas compensações (pagamento recusado e falha na execução), incluindo reserva e devolução de estoque.
+- **Observabilidade (mesma stack da Fase 3 — Datadog):** APM com traces distribuídos entre os 3 serviços (propagação via RabbitMQ), logs JSON correlacionados por `trace_id`, métricas de negócio `oficina.*` (volume de OS, tempo médio por etapa, compensações) e dashboard versionado em `datadog/`.
+- **Evidências:** seção 6 do README de cada repositório (SonarCloud, execuções do Actions, deploy no Kubernetes com health checks, PR com checks e proteção da `main`).
+
+> **Deploy automatizado e limitação do AWS Academy:** conforme orientação do Prof. Alex Faiotto, o deploy automatizado é executado pelo próprio pipeline em um cluster Kubernetes **Kind** (gatilhos `push`, `pull_request` e `workflow_dispatch`), com manifests, script de deploy e evidências de Pods, Services, HPA e health checks nos logs de cada execução. Os mesmos manifestos de `/k8s` e a infraestrutura Terraform (`/infra` e repositórios da Fase 3) servem ao Amazon EKS; o ambiente AWS não fica ativo de forma contínua por causa das sessões temporárias e dos créditos do AWS Academy.
