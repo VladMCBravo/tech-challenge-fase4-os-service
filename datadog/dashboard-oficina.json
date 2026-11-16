@@ -1,80 +1,260 @@
 {
-  "title": "Oficina Mecânica — Observabilidade (Fase 3)",
-  "description": "Latência, erros, recursos do Kubernetes e métricas de negócio das Ordens de Serviço.",
-  "layout_type": "ordered",
+  "title": "Oficina Mecânica — Observabilidade (Fase 4)",
+  "description": "Saga entre os 3 microsserviços, latência, erros, recursos do Kubernetes e métricas de negócio das Ordens de Serviço.",
+  "layout_type": "free",
   "widgets": [
     {
       "definition": {
+        "type": "note",
+        "content": "## Oficina Mecânica — Fase 4\nMicrosserviços **os-service**, **billing-service** e **execution-service** · Saga coreografada via RabbitMQ (`oficina.saga`) · Kubernetes (Kind)",
+        "background_color": "blue",
+        "font_size": "14",
+        "text_align": "left",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 95,
+        "height": 7
+      }
+    },
+    {
+      "definition": {
         "type": "query_value",
-        "title": "Volume de OS criadas (período)",
+        "title": "OS criadas (período)",
         "requests": [
-          { "q": "sum:oficina.work_orders.created{*}.as_count()", "aggregator": "sum" }
+          {
+            "q": "sum:oficina.work_orders.created{*}.as_count()",
+            "aggregator": "sum"
+          }
         ],
-        "precision": 0
+        "precision": 0,
+        "autoscale": true
+      },
+      "layout": {
+        "x": 0,
+        "y": 8,
+        "width": 23,
+        "height": 10
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Orçamentos gerados (Billing)",
+        "requests": [
+          {
+            "q": "sum:oficina.billing.budgets_generated{*}.as_count()",
+            "aggregator": "sum"
+          }
+        ],
+        "precision": 0,
+        "autoscale": true
+      },
+      "layout": {
+        "x": 24,
+        "y": 8,
+        "width": 23,
+        "height": 10
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Pagamentos aprovados (Mercado Pago)",
+        "requests": [
+          {
+            "q": "sum:oficina.billing.payments_approved{*}.as_count()",
+            "aggregator": "sum"
+          }
+        ],
+        "precision": 0,
+        "autoscale": true
+      },
+      "layout": {
+        "x": 48,
+        "y": 8,
+        "width": 23,
+        "height": 10
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "OS enviadas à fila de execução",
+        "requests": [
+          {
+            "q": "sum:oficina.execution.queued{*}.as_count()",
+            "aggregator": "sum"
+          }
+        ],
+        "precision": 0,
+        "autoscale": true
+      },
+      "layout": {
+        "x": 72,
+        "y": 8,
+        "width": 23,
+        "height": 10
       }
     },
     {
       "definition": {
         "type": "timeseries",
-        "title": "Volume diário de Ordens de Serviço",
+        "title": "Saga — transições de status da OS (inclui CANCELLED = compensação)",
+        "show_legend": true,
         "requests": [
-          { "q": "sum:oficina.work_orders.created{*}.as_count()", "display_type": "bars" }
+          {
+            "q": "sum:oficina.work_orders.status_change{*} by {status}.as_count()",
+            "display_type": "bars"
+          }
         ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 19,
+        "width": 47,
+        "height": 15
       }
     },
     {
       "definition": {
         "type": "timeseries",
-        "title": "Tempo médio por etapa (segundos) — diagnóstico / execução / finalização",
+        "title": "Tempo médio por etapa (s) — diagnóstico / execução / finalização",
+        "show_legend": true,
         "requests": [
-          { "q": "avg:oficina.work_orders.stage_duration{*} by {stage}", "display_type": "line" }
+          {
+            "q": "avg:oficina.work_orders.stage_duration{*} by {stage}",
+            "display_type": "line"
+          }
         ]
+      },
+      "layout": {
+        "x": 48,
+        "y": 19,
+        "width": 47,
+        "height": 15
       }
     },
     {
       "definition": {
         "type": "timeseries",
         "title": "Latência das APIs (ms) — média e p95",
+        "show_legend": true,
         "requests": [
-          { "q": "avg:oficina.api.latency{*}", "display_type": "line" },
-          { "q": "p95:oficina.api.latency{*}", "display_type": "line" }
+          {
+            "q": "avg:oficina.api.latency{*}",
+            "display_type": "line"
+          },
+          {
+            "q": "p95:oficina.api.latency{*}",
+            "display_type": "line"
+          }
         ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 35,
+        "width": 47,
+        "height": 15
       }
     },
     {
       "definition": {
         "type": "timeseries",
         "title": "Requisições por classe de status (2xx / 4xx / 5xx)",
+        "show_legend": true,
         "requests": [
-          { "q": "sum:oficina.api.requests{*} by {status_class}.as_count()", "display_type": "bars" }
+          {
+            "q": "sum:oficina.api.requests{*} by {status_class}.as_count()",
+            "display_type": "bars"
+          }
         ]
+      },
+      "layout": {
+        "x": 48,
+        "y": 35,
+        "width": 47,
+        "height": 15
       }
     },
     {
       "definition": {
         "type": "timeseries",
         "title": "Erros e falhas nas integrações",
+        "show_legend": true,
         "requests": [
-          { "q": "sum:oficina.errors{*} by {type}.as_count()", "display_type": "bars" }
+          {
+            "q": "sum:oficina.errors{*} by {type}.as_count()",
+            "display_type": "bars"
+          }
         ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 51,
+        "width": 47,
+        "height": 15
       }
     },
     {
       "definition": {
         "type": "timeseries",
-        "title": "Kubernetes — uso de CPU por pod",
+        "title": "Volume de Ordens de Serviço",
+        "show_legend": true,
         "requests": [
-          { "q": "avg:kubernetes.cpu.usage.total{kube_cluster_name:oficina-eks-cluster-v2} by {pod_name}", "display_type": "line" }
+          {
+            "q": "sum:oficina.work_orders.created{*}.as_count()",
+            "display_type": "bars"
+          }
         ]
+      },
+      "layout": {
+        "x": 48,
+        "y": 51,
+        "width": 47,
+        "height": 15
       }
     },
     {
       "definition": {
         "type": "timeseries",
-        "title": "Kubernetes — uso de memória por pod",
+        "title": "Kubernetes — CPU por pod",
+        "show_legend": true,
         "requests": [
-          { "q": "avg:kubernetes.memory.usage{kube_cluster_name:oficina-eks-cluster-v2} by {pod_name}", "display_type": "line" }
+          {
+            "q": "avg:kubernetes.cpu.usage.total{kube_cluster_name:oficina-k8s-kind} by {pod_name}",
+            "display_type": "line"
+          }
         ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 67,
+        "width": 47,
+        "height": 15
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Kubernetes — memória por pod",
+        "show_legend": true,
+        "requests": [
+          {
+            "q": "avg:kubernetes.memory.usage{kube_cluster_name:oficina-k8s-kind} by {pod_name}",
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {
+        "x": 48,
+        "y": 67,
+        "width": 47,
+        "height": 15
       }
     }
   ]

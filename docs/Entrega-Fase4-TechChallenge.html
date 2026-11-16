@@ -293,35 +293,47 @@
     <thead>
       <tr>
         <th>Microsserviço</th>
-        <th>Suítes / Testes</th>
-        <th>Cobertura (Lines)</th>
-        <th>BDD / SonarQube / Deploy Automatizado K8s</th>
+        <th>Testes</th>
+        <th>Cobertura (Jest)</th>
+        <th>SonarCloud</th>
+        <th>Destaques</th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td><strong><code>os-service</code></strong></td>
-        <td>11 suítes / 117 testes</td>
-        <td><strong>90,50%</strong></td>
-        <td>Cenários BDD em Gherkin (<code>work-order-saga.feature</code>) + SonarQube + Deploy K8s</td>
+        <td>126 unitários + BDD · 11 e2e HTTP</td>
+        <td><strong>95,3%</strong></td>
+        <td>Quality Gate <strong>Passed</strong> · 87,5% · A/A/A</td>
+        <td>BDD executável com <strong>jest-cucumber</strong> (Gherkin <code>work-order-saga.feature</code>: fluxo completo + rollback) · e2e da API com supertest</td>
       </tr>
       <tr>
         <td><strong><code>billing-service</code></strong></td>
-        <td>1 suíte / 10 testes</td>
-        <td><strong>83,68%</strong></td>
-        <td>OAuth2 (<code>client_id</code>/<code>client_secret</code>) + Checkout/PIX Mercado Pago + Rollback <code>REFUNDED</code> + SonarQube + Deploy K8s</td>
+        <td>20 unitários</td>
+        <td><strong>97,4%</strong></td>
+        <td>Quality Gate <strong>Passed</strong> · 87,2% · A/A/A</td>
+        <td>OAuth2 <code>client_id</code>/<code>client_secret</code> · Checkout/PIX · estorno <code>REFUNDED</code> · RabbitMQ</td>
       </tr>
       <tr>
         <td><strong><code>execution-service</code></strong></td>
-        <td>1 suíte / 7 testes</td>
-        <td><strong>81,40%</strong></td>
-        <td>Fila NoSQL MongoDB + Eventos Saga + Rollback + SonarQube + Deploy K8s</td>
+        <td>17 unitários</td>
+        <td><strong>90,2%</strong></td>
+        <td>Quality Gate <strong>Passed</strong> · 82,9% · A/A/A</td>
+        <td>Fila NoSQL MongoDB · eventos e compensação da Saga · RabbitMQ</td>
       </tr>
     </tbody>
   </table>
 
+  <ul>
+    <li><strong>CI/CD (GitHub Actions, um pipeline por repositório):</strong> <code>test-and-quality</code> (testes com cobertura mínima de 80% como gate do Jest, build e análise <strong>SonarCloud com Quality Gate bloqueante</strong>) → <code>build-and-deploy</code> (imagem Docker → cluster Kubernetes <strong>Kind</strong> → <code>scripts/deploy-k8s.sh</code>: banco próprio + RabbitMQ, rollout das 2 réplicas, <strong>health checks</strong> com banco e mensageria conectados, Pods/Services/HPA).</li>
+    <li><strong>Repositórios protegidos:</strong> <code>main</code> só recebe alterações via <strong>Pull Request</strong>, com <code>test-and-quality</code> e <code>build-and-deploy</code> como checks obrigatórios e o resultado do SonarCloud comentado no PR.</li>
+    <li><strong>Saga ponta a ponta:</strong> <code>scripts/saga-e2e.sh</code> valida, no cluster, o fluxo de sucesso e as duas compensações (pagamento recusado e falha na execução), incluindo reserva e devolução de estoque.</li>
+    <li><strong>Observabilidade (mesma stack da Fase 3 — Datadog):</strong> APM com traces distribuídos entre os 3 serviços (propagação via RabbitMQ), logs JSON correlacionados por <code>trace_id</code>, métricas de negócio <code>oficina.*</code> (volume de OS, tempo médio por etapa, compensações) e dashboard versionado em <code>datadog/</code>.</li>
+    <li><strong>Evidências:</strong> seção 6 do README de cada repositório (SonarCloud, execuções do Actions, deploy no Kubernetes com health checks, PR com checks e proteção da <code>main</code>).</li>
+  </ul>
+
   <div class="note">
-    <strong>Nota sobre Deploy Automatizado em Kubernetes e Limitação do AWS Academy:</strong> Conforme orientação dos professores e coordenação, os pipelines <code>.github/workflows/deploy.yml</code> dos 3 repositórios possuem gatilhos automáticos (<code>push</code>, <code>pull_request</code>) e <code>workflow_dispatch</code>. Em cada execução, o job <code>deploy-k8s</code> provisiona automaticamente um cluster Kubernetes via <strong>Kind (<code>helm/kind-action</code>)</strong> no próprio pipeline, aplica todos os manifestos de <code>/k8s</code> e valida o status dos Pods, Services, HPA e Health Checks, além de realizar o deploy no <strong>Amazon EKS</strong> quando as credenciais temporárias do AWS Academy estão ativas.
+    <strong>Deploy automatizado e limitação do AWS Academy:</strong> conforme orientação do Prof. Alex Faiotto, o deploy automatizado é executado pelo próprio pipeline em um cluster Kubernetes <strong>Kind</strong> (gatilhos <code>push</code>, <code>pull_request</code> e <code>workflow_dispatch</code>), com manifests, script de deploy e evidências de Pods, Services, HPA e health checks nos logs de cada execução. Os mesmos manifestos de <code>/k8s</code> e a infraestrutura Terraform (<code>/infra</code> e repositórios da Fase 3) servem ao Amazon EKS; o ambiente AWS não fica ativo de forma contínua por causa das sessões temporárias e dos créditos do AWS Academy.
   </div>
 </body>
 </html>

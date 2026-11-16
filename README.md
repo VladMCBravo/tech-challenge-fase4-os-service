@@ -160,24 +160,33 @@ docker build -t oficina-os-service:latest . && kind load docker-image oficina-os
 ```
 
 ### Teste ponta a ponta da Saga (3 microsserviços + RabbitMQ)
-Com os 3 serviços no ar (docker compose ou Kubernetes com `kubectl port-forward`), o script [`scripts/saga-e2e.sh`](./scripts/saga-e2e.sh) executa os dois cenários da Saga e valida cada transição de estado:
+Com os 3 serviços no ar (docker compose ou Kubernetes — `./scripts/demo-k8s.sh` abre os port-forwards), o script [`scripts/saga-e2e.sh`](./scripts/saga-e2e.sh) executa os 3 cenários da Saga e valida cada transição de estado, inclusive a reserva e a devolução de estoque:
 ```bash
-OS_URL=http://localhost:3000/api BILLING_URL=http://localhost:3001/api EXECUTION_URL=http://localhost:3002/api ./scripts/saga-e2e.sh
+./scripts/saga-e2e.sh                 # STEP_DELAY=2 para pausar entre as etapas
 ```
 ```text
 ==> Cenário 1: fluxo completo de sucesso
    ✔ OS aguardando aprovação: WAITING_APPROVAL
-   ✔ Billing gerou orçamento (os.budget.requested): PENDING
-   ✔ Orçamento aprovado no Billing: APPROVED
+   ✔ Estoque reservado (DECREASE de 2 unidades): 8
+   ✔ Billing gerou orçamento via RabbitMQ (os.budget.requested): PENDING
+   ✔ Webhook Mercado Pago aprovado: orçamento APPROVED: APPROVED
    ✔ OS em execução (payment.approved): IN_EXECUTION
    ✔ OS na fila do MongoDB (os.execution.requested): QUEUED
+   ✔ Mecânico em reparo (MongoDB): IN_REPAIR
    ✔ Execução concluída no MongoDB: COMPLETED
    ✔ OS finalizada (execution.finished): FINISHED
-==> Cenário 2: pagamento recusado -> compensação
-   ✔ Billing gerou orçamento (os.budget.requested): PENDING
+   ✔ Veículo entregue: DELIVERED
+==> Cenário 2: pagamento recusado no Mercado Pago -> compensação
    ✔ Orçamento rejeitado no Billing: REJECTED
+   ✔ Estoque devolvido (REVERSAL de 2 unidades): 8
    ✔ OS cancelada pela compensação (payment.failed): CANCELLED
-Saga validada ponta a ponta nos 3 microsserviços.
+==> Cenário 3: falha crítica na execução -> estorno do pagamento + compensação
+   ✔ Execução marcada como FAILED no MongoDB: FAILED
+   ✔ Pagamento estornado no Mercado Pago (execution.failed): REFUNDED
+   ✔ Orçamento cancelado no Billing: CANCELLED
+   ✔ Estoque devolvido (REVERSAL de 2 unidades): 8
+   ✔ OS cancelada pela compensação (execution.failed): CANCELLED
+Saga validada ponta a ponta nos 3 microsserviços (sucesso + 2 compensações).
 ```
 
 ---
