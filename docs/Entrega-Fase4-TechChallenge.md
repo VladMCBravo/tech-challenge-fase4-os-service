@@ -22,14 +22,16 @@ A solução foi decomposta em microsserviços independentes, cada um com seu pr�
 
 | Componente / Microsserviço | Banco de Dados | Infra & K8s Próprios | Repositório GitHub |
 | :--- | :--- | :---: | :--- |
-| **1. OS Service (Ordem de Serviço, Clientes, Veículos, Estoque)** | **PostgreSQL (SQL)** (`os_db`) | `/infra` + `/k8s` | `https://github.com/VladMCBravo/tech-challenge-fase4-os-service` |
-| **2. Billing Service (Orçamento e Pagamento + Mercado Pago OAuth2/PIX)** | **PostgreSQL (SQL)** (`billing_db`) | `/infra` + `/k8s` | `https://github.com/VladMCBravo/tech-challenge-fase4-billing-service` |
-| **3. Execution Service (Fila de Execução e Produção)** | **MongoDB (NoSQL)** (`execution_db`) | `/infra` + `/k8s` | `https://github.com/VladMCBravo/tech-challenge-fase4-execution-service` |
-| **4. Function Serverless (Autenticação por CPF → JWT)** | — | Terraform | `https://github.com/VladMCBravo/tech-challenge-fase3-serverless-auth` |
-| **5. Infraestrutura Kubernetes & API Gateway (Terraform)** | — | Terraform | `https://github.com/VladMCBravo/tech-challenge-fase3-infra-k8s` |
-| **6. Infraestrutura Banco de Dados (Terraform)** | — | Terraform | `https://github.com/VladMCBravo/tech-challenge-fase3-infra-db` |
+| **1. OS Service (Ordem de Serviço, Clientes, Veículos, Estoque)** | **PostgreSQL (SQL)** (`os_db`) | `/infra` + `/k8s` | https://github.com/VladMCBravo/tech-challenge-fase4-os-service |
+| **2. Billing Service (Orçamento e Pagamento + Mercado Pago OAuth2/PIX)** | **PostgreSQL (SQL)** (`billing_db`) | `/infra` + `/k8s` | https://github.com/VladMCBravo/tech-challenge-fase4-billing-service |
+| **3. Execution Service (Fila de Execução e Produção)** | **MongoDB (NoSQL)** (`execution_db`) | `/infra` + `/k8s` | https://github.com/VladMCBravo/tech-challenge-fase4-execution-service |
+| **4. Function Serverless (Autenticação por CPF → JWT)** | — | Terraform | https://github.com/VladMCBravo/tech-challenge-fase3-serverless-auth |
+| **5. Infraestrutura Kubernetes & API Gateway (Terraform)** | — | Terraform | https://github.com/VladMCBravo/tech-challenge-fase3-infra-k8s |
+| **6. Infraestrutura Banco de Dados (Terraform)** | — | Terraform | https://github.com/VladMCBravo/tech-challenge-fase3-infra-db |
 
-- **Link do Vídeo de Demonstração (até 15 min):** `<INSERIR_LINK_DO_YOUTUBE_AQUI>`
+- **Vídeo de Demonstração (YouTube):** https://youtu.be/YD40s8ApviI
+- **SonarCloud (Quality Gate):** [os-service](https://sonarcloud.io/project/overview?id=VladMCBravo_tech-challenge-fase4-os-service) · [billing-service](https://sonarcloud.io/project/overview?id=VladMCBravo_tech-challenge-fase4-billing-service) · [execution-service](https://sonarcloud.io/project/overview?id=VladMCBravo_tech-challenge-fase4-execution-service)
+- **Documentação no repositório:** [ADRs, RFCs e diagramas](./)
 
 ---
 
