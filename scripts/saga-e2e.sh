@@ -52,7 +52,7 @@ const d=(a)=>{const s=a.reduce((t,v,i)=>t+v*(a.length+1-i),0)%11;return s<2?0:11
 n.push(d(n));n.push(d(n));console.log(n.join(""))'; }
 new_plate() { node -e 'const L="ABCDEFGHJKLMNPRSTUVWXYZ",r=s=>s[Math.floor(Math.random()*s.length)],D="0123456789";console.log(r(L)+r(L)+r(L)+r(D)+r(L)+r(D)+r(D))'; }
 
-STEP_DELAY="${STEP_DELAY:-0}"   # ex.: STEP_DELAY=2 para pausar entre etapas na gravação
+STEP_DELAY="${STEP_DELAY:-0}"   # segundos de pausa entre as etapas (ex.: STEP_DELAY=2)
 pause() { sleep "$STEP_DELAY"; }
 
 setup_catalog() {

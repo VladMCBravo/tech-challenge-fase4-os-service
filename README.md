@@ -160,7 +160,7 @@ docker build -t oficina-os-service:latest . && kind load docker-image oficina-os
 ```
 
 ### Teste ponta a ponta da Saga (3 microsserviços + RabbitMQ)
-Com os 3 serviços no ar (docker compose ou Kubernetes — `./scripts/demo-k8s.sh` abre os port-forwards), o script [`scripts/saga-e2e.sh`](./scripts/saga-e2e.sh) executa os 3 cenários da Saga e valida cada transição de estado, inclusive a reserva e a devolução de estoque:
+Com os 3 serviços no ar (docker compose ou Kubernetes com port-forward nas portas 3000, 3001 e 3002), o script [`scripts/saga-e2e.sh`](./scripts/saga-e2e.sh) executa os 3 cenários da Saga e valida cada transição de estado, inclusive a reserva e a devolução de estoque:
 ```bash
 ./scripts/saga-e2e.sh                 # STEP_DELAY=2 para pausar entre as etapas
 ```
